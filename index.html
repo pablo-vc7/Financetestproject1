@@ -951,6 +951,7 @@
       document.getElementById('lockPinInput').value = '';
       document.getElementById('lockScreen').style.display = 'none';
       document.getElementById('app').style.display = 'block';
+      handleQuickAddFromURL();
     } else {
       document.getElementById('lockError').textContent = 'PIN incorrecto';
     }
@@ -1037,6 +1038,74 @@
     state.transactions = state.transactions.filter(t=>t.id!==id);
     saveData();
     renderAll();
+  }
+
+  /* ---------- Registro rápido vía URL (Atajos de iOS) ----------
+     Uso: abrir la app con ?quickadd=1&amount=12.50&category=Ocio&note=Bar&type=gasto[&account=BBVA][&autosave=1]
+     Pensado para una automatización de Atajos con el activador "Transacción" de Apple Wallet:
+     al pagar con Apple Pay, Atajos puede recibir el importe automáticamente y solo preguntar la categoría. */
+  function matchCategory(raw){
+    if(!raw) return 'Otros';
+    const options = [...document.getElementById('txCategory').options].map(o=>o.value);
+    const norm = s => s.toString().trim().toLowerCase();
+    return options.find(c => norm(c) === norm(raw)) || 'Otros';
+  }
+  function findAccountByName(name){
+    if(!name) return null;
+    const norm = s => s.toString().trim().toLowerCase();
+    return state.accounts.find(a => norm(a.name) === norm(name)) ||
+           state.accounts.find(a => norm(a.name).includes(norm(name)));
+  }
+  function isAppLocked(){
+    const hash = localStorage.getItem('patrimonio_pin_hash');
+    return !!hash && sessionStorage.getItem('patrimonio_unlocked') !== '1';
+  }
+  function handleQuickAddFromURL(){
+    let params;
+    try{ params = new URLSearchParams(window.location.search); }catch(e){ return; }
+    if(params.get('quickadd') !== '1') return;
+    // Limpiar la URL cuanto antes para que recargar la página no vuelva a disparar el registro
+    history.replaceState(null, '', window.location.pathname);
+
+    if(state.accounts.length === 0){
+      toast('Configura primero una cuenta para el registro rápido', {icon:'⚠️'});
+      setView('accounts');
+      return;
+    }
+
+    const amountRaw = params.get('amount');
+    const amount = amountRaw != null ? parseFloat(String(amountRaw).replace(',', '.')) : NaN;
+    const category = matchCategory(params.get('category'));
+    const note = params.get('note') || '';
+    const type = params.get('type') === 'ingreso' ? 'ingreso' : 'gasto';
+    const account = findAccountByName(params.get('account'))
+      || state.accounts.find(a=>/bbva/i.test(a.name))
+      || state.accounts[0];
+    const autosave = params.get('autosave') === '1';
+
+    if(!isFinite(amount) || amount <= 0 || !account){
+      toast('El atajo no trajo un importe válido', {icon:'⚠️'});
+      setView('accounts');
+      return;
+    }
+
+    if(autosave){
+      state.transactions.push({ id: uid(), accountId: account.id, amount, type, category, date: todayISO(), note });
+      saveData();
+      renderAll();
+      toast(`${type==='ingreso'?'Ingreso':'Gasto'} de ${fmtEUR(amount)} guardado`);
+      return;
+    }
+
+    // Sin autoguardado: se abre el formulario ya relleno, solo falta confirmar con un toque
+    setView('accounts');
+    openTxSheet();
+    txType = type;
+    document.querySelectorAll('#txTypeSeg button').forEach(b=> b.classList.toggle('active', b.dataset.type===type));
+    document.getElementById('txAccount').value = account.id;
+    document.getElementById('txAmount').value = amount;
+    document.getElementById('txCategory').value = category;
+    document.getElementById('txNote').value = note;
   }
 
   /* ---------- Cartera Metal: aportaciones ---------- */
@@ -2153,6 +2222,7 @@
   renderAll();
   getUsdToEur().then(()=> renderAll());
   if(state.crypto.length){ updatePrices(); }
+  if(!isAppLocked()){ handleQuickAddFromURL(); }
 
 })();
 </script>
