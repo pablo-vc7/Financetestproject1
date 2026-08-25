@@ -1047,12 +1047,12 @@
   function matchCategory(raw){
     if(!raw) return 'Otros';
     const options = [...document.getElementById('txCategory').options].map(o=>o.value);
-    const norm = s => s.toString().trim().toLowerCase();
+    const norm = s => s.toString().trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     return options.find(c => norm(c) === norm(raw)) || 'Otros';
   }
   function findAccountByName(name){
     if(!name) return null;
-    const norm = s => s.toString().trim().toLowerCase();
+    const norm = s => s.toString().trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     return state.accounts.find(a => norm(a.name) === norm(name)) ||
            state.accounts.find(a => norm(a.name).includes(norm(name)));
   }
