@@ -64,6 +64,8 @@
   .card-title{ font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim); margin:0 0 10px 0; font-weight:600;}
 
   .hero-total{ font-size:38px; font-weight:700; letter-spacing:-0.03em; margin:2px 0 2px 0;}
+  .hero-total.pos{ color:var(--accent); }
+  .hero-total.neg{ color:var(--loss); }
   .hero-label{ font-size:13px; color:var(--text-dim);}
   .delta{ font-size:14px; font-weight:600; }
   .delta.pos{ color:var(--accent); }
@@ -323,15 +325,25 @@
       <div class="filter-chips" id="movFilterChips"></div>
 
       <div class="card">
-        <p class="card-title">Gastos de este mes</p>
-        <div class="row" style="border:none; padding-top:0;">
-          <div class="name">Total este mes</div>
-          <div class="amount tabular" id="expenseCompareCur">0,00 €</div>
+        <p class="card-title">Balance de este mes</p>
+        <div class="hero-total tabular" id="monthBalance">0,00 €</div>
+        <div class="delta tabular" id="monthBalanceHint">Ingresos menos gastos</div>
+        <div class="row" style="border-top:1px solid var(--border); margin-top:12px; padding-top:10px;">
+          <div class="name">Ingresos</div>
+          <div class="amount tabular pos" id="monthIncome">0,00 €</div>
+        </div>
+        <div class="row">
+          <div class="name">Gastos</div>
+          <div class="amount tabular neg" id="monthExpense">0,00 €</div>
         </div>
         <div class="row">
           <div class="name">Frente al mes anterior</div>
-          <div class="amount tabular" id="expenseCompareChange">0,00 €</div>
+          <div class="amount tabular" id="monthBalanceChange">0,00 €</div>
         </div>
+      </div>
+
+      <div class="card">
+        <p class="card-title">Gastos por categoría (este mes)</p>
         <div id="dashCategoryList" style="margin-top:6px;"></div>
       </div>
 
@@ -1733,7 +1745,7 @@
   }
 
   function renderMovementsView(){
-    renderExpensesCard();
+    renderBalanceCard();
     renderFilterChips();
     const txListEl = document.getElementById('txList');
     const movements = filteredMovements();
@@ -1950,7 +1962,7 @@
     }).join('');
   }
 
-  /* ---------- Gastos por categoría y comparativa mensual ---------- */
+  /* ---------- Ingresos/gastos por categoría y balance mensual ---------- */
   function expensesByCategory(year, month){
     const ym = `${year}-${String(month).padStart(2,'0')}`;
     const map = {};
@@ -1965,23 +1977,44 @@
     const map = expensesByCategory(year, month);
     return Object.values(map).reduce((s,v)=>s+v,0);
   }
-  function renderExpensesCard(){
+  function incomeForMonth(year, month){
+    const ym = `${year}-${String(month).padStart(2,'0')}`;
+    return state.transactions
+      .filter(t=> t.type==='ingreso' && t.date.slice(0,7)===ym)
+      .reduce((s,t)=>s+t.amount, 0);
+  }
+  function renderBalanceCard(){
     const now = new Date();
     const curYear = now.getFullYear();
     const curMonthNum = now.getMonth()+1;
     let prevYear = curYear, prevMonthNum = curMonthNum-1;
     if(prevMonthNum===0){ prevMonthNum = 12; prevYear -= 1; }
 
-    const curTotal = totalExpensesForMonth(curYear, curMonthNum);
-    const prevTotal = totalExpensesForMonth(prevYear, prevMonthNum);
-    const diff = curTotal - prevTotal;
-    const diffPct = prevTotal !== 0 ? (diff/prevTotal*100) : (curTotal!==0 ? 100 : 0);
+    const curIncome = incomeForMonth(curYear, curMonthNum);
+    const curExpense = totalExpensesForMonth(curYear, curMonthNum);
+    const curBalance = curIncome - curExpense;
 
-    document.getElementById('expenseCompareCur').textContent = fmtEUR(curTotal);
-    const changeEl = document.getElementById('expenseCompareChange');
-    // Más gasto que el mes anterior = rojo (neg); menos gasto = verde (pos)
-    changeEl.textContent = `${diff>=0?'+':''}${fmtEUR(diff)} · ${fmtPct(diffPct)}`;
-    changeEl.className = 'amount tabular ' + (diff>0 ? 'neg' : (diff<0 ? 'pos' : ''));
+    const prevIncome = incomeForMonth(prevYear, prevMonthNum);
+    const prevExpense = totalExpensesForMonth(prevYear, prevMonthNum);
+    const prevBalance = prevIncome - prevExpense;
+    const diff = curBalance - prevBalance;
+
+    const balanceEl = document.getElementById('monthBalance');
+    balanceEl.textContent = (curBalance>=0?'+':'') + fmtEUR(curBalance);
+    balanceEl.className = 'hero-total tabular ' + (curBalance>=0 ? 'pos' : 'neg');
+
+    const hintEl = document.getElementById('monthBalanceHint');
+    hintEl.textContent = curBalance > 0
+      ? 'Este mes vas en positivo'
+      : (curBalance < 0 ? 'Este mes vas en negativo' : 'Este mes estás a cero');
+    hintEl.className = 'delta tabular ' + (curBalance>=0 ? 'pos' : 'neg');
+
+    document.getElementById('monthIncome').textContent = fmtEUR(curIncome);
+    document.getElementById('monthExpense').textContent = fmtEUR(curExpense);
+
+    const changeEl = document.getElementById('monthBalanceChange');
+    changeEl.textContent = `${diff>=0?'+':''}${fmtEUR(diff)}`;
+    changeEl.className = 'amount tabular ' + (diff>0 ? 'pos' : (diff<0 ? 'neg' : ''));
 
     const catMap = expensesByCategory(curYear, curMonthNum);
     const entries = Object.entries(catMap).sort((a,b)=> b[1]-a[1]);
