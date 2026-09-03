@@ -421,6 +421,9 @@
           <button class="btn small" id="quickContribBtn">+ Aportación 150 €</button>
           <button class="btn secondary small" id="metalValueBtn">Actualizar valor</button>
         </div>
+        <div class="btn-row" style="margin-top:8px;">
+          <button class="btn secondary small" id="customContribBtn" style="flex:1;">+ Otra cantidad</button>
+        </div>
       </div>
 
       <div class="card">
@@ -1139,6 +1142,10 @@
 
   document.getElementById('quickContribBtn').addEventListener('click', ()=>{
     openMetalContribSheet(150);
+  });
+
+  document.getElementById('customContribBtn').addEventListener('click', ()=>{
+    openMetalContribSheet(null);
   });
 
   document.getElementById('saveMetalContribBtn').addEventListener('click', ()=>{
