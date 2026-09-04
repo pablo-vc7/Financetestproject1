@@ -1119,7 +1119,6 @@
     const note = params.get('note') || '';
     const type = params.get('type') === 'ingreso' ? 'ingreso' : 'gasto';
     const account = findAccountByName(params.get('account'))
-      || state.accounts.find(a=>/bbva/i.test(a.name))
       || state.accounts[0];
     const autosave = params.get('autosave') === '1';
 
