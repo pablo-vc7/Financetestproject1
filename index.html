@@ -553,9 +553,9 @@
 <div class="sheet-backdrop" id="backdrop-account"></div>
 <div class="sheet" id="sheet-account">
   <div class="sheet-handle"></div>
-  <h2>Nueva cuenta</h2>
+  <h2 id="accountSheetTitle">Nueva cuenta</h2>
   <label class="field-label">Nombre</label>
-  <input type="text" id="accName" placeholder="ej. BBVA, Efectivo">
+  <input type="text" id="accName" placeholder="ej. Trade Republic, Efectivo">
   <label class="field-label">Saldo inicial (€)</label>
   <input type="number" step="0.01" id="accBalance" placeholder="0,00">
   <button class="btn" id="saveAccountBtn">Guardar cuenta</button>
@@ -992,19 +992,44 @@
     return bal;
   }
 
-  document.getElementById('addAccountBtn').addEventListener('click', ()=>{
-    document.getElementById('accName').value='';
-    document.getElementById('accBalance').value='';
+  let editingAccId = null;
+
+  function openAccountSheet(editId){
+    editingAccId = editId || null;
+    const balField = document.getElementById('accBalance');
+    const balLabel = balField.previousElementSibling;
+    if(editingAccId){
+      const acc = state.accounts.find(a=>a.id===editingAccId);
+      document.getElementById('accountSheetTitle').textContent = 'Editar cuenta';
+      document.getElementById('accName').value = acc.name;
+      balField.value = acc.initialBalance;
+      balLabel.textContent = 'Saldo inicial (€) — ojo, cambiarlo afecta al saldo actual';
+    } else {
+      document.getElementById('accountSheetTitle').textContent = 'Nueva cuenta';
+      document.getElementById('accName').value='';
+      balField.value='';
+      balLabel.textContent = 'Saldo inicial (€)';
+    }
     openSheet('account');
-  });
+  }
+
+  document.getElementById('addAccountBtn').addEventListener('click', ()=> openAccountSheet(null));
+
   document.getElementById('saveAccountBtn').addEventListener('click', ()=>{
     const name = document.getElementById('accName').value.trim();
     const balance = parseFloat(document.getElementById('accBalance').value) || 0;
     if(!name){ toast('Ponle un nombre a la cuenta', {icon:'⚠️'}); return; }
-    state.accounts.push({ id: uid(), name, initialBalance: balance });
+    if(editingAccId){
+      const acc = state.accounts.find(a=>a.id===editingAccId);
+      Object.assign(acc, { name, initialBalance: balance });
+      toast('Cuenta actualizada');
+    } else {
+      state.accounts.push({ id: uid(), name, initialBalance: balance });
+      toast('Cuenta creada');
+    }
     saveData();
     closeSheet('account');
-    toast('Cuenta creada');
+    editingAccId = null;
     renderAll();
   });
 
@@ -1802,6 +1827,8 @@
   }
 
   document.addEventListener('click', (e)=>{
+    const ea = e.target.closest('[data-edit-account]');
+    if(ea){ openAccountSheet(ea.dataset.editAccount); return; }
     const da = e.target.closest('[data-del-account]');
     if(da){ deleteAccount(da.dataset.delAccount); return; }
     const dt = e.target.closest('[data-del-tx]');
@@ -2131,8 +2158,9 @@
         const b = accountBalance(a);
         return `<div class="row">
           <div class="name">${escapeHtml(a.name)}</div>
-          <div style="display:flex; align-items:center; gap:10px;">
+          <div style="display:flex; align-items:center; gap:8px;">
             <div class="amount tabular">${fmtEUR(b)}</div>
+            <button class="swipe-del" data-edit-account="${a.id}" style="background:var(--panel-2); color:var(--text-dim);">Editar</button>
             <button class="swipe-del" data-del-account="${a.id}">Borrar</button>
           </div>
         </div>`;
